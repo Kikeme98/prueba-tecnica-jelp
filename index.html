@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Vite App</title>
+  </head>
+  <body>
+    <div class="container">
+      <h1>Puyo Puyo</h1>
+      <div class="gameContainer">
+        <div class="gameDiv">
+          <p>Puntuation: <span id="puntuation">0</span></p>
+          <canvas id="gameCanvas" width="300" height="600"></canvas>
+        </div>
+        <div class="nextPuyoDiv">
+          <p>Next Puyo</p>
+          <canvas id="nextPuyoCanvas" width="150" height="150"> </canvas>
+        </div>
+      </div>
+      <script type="module" src="/main.js"></script>
+    </div>
+  </body>
+</html>
