@@ -323,7 +323,7 @@ const startGame = () => {
       }
       lastTimestamp = timestamp;
 
-      speed = Math.max(100, speed - 10);
+      speed = speed > 500 ? speed - 10 : speed;
     }
 
     requestAnimationFrame(gameLoop);
