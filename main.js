@@ -279,6 +279,7 @@ const startGame = () => {
   puntuation = 0;
   currentPuyo = spawnPuyo();
   nextPuyo = spawnPuyo();
+  let speed = 1000;
   const gameLoop = (timestamp) => {
     const deltaTime = timestamp - lastTimestamp;
 
@@ -295,7 +296,7 @@ const startGame = () => {
       puntuationElement.textContent = puntuation;
     }
 
-    if (deltaTime > 1000) {
+    if (deltaTime > speed) {
       // Verificar y hacer caer los puyos individuales
       for (let row = ROWS - 1; row >= 0; row--) {
         for (let col = 0; col < COLS; col++) {
@@ -321,6 +322,8 @@ const startGame = () => {
         currentPuyo.fall();
       }
       lastTimestamp = timestamp;
+
+      speed = Math.max(100, speed - 10);
     }
 
     requestAnimationFrame(gameLoop);
