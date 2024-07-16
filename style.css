@@ -18,8 +18,6 @@ body {
   justify-content: center;
   align-items: center;
   margin: 0;
-  min-width: 320px;
-  min-height: 100vh;
 }
 
 canvas {
@@ -28,19 +26,83 @@ canvas {
   box-shadow: 0 0 10px black;
   border-radius: 10px;
 }
-.gameContainer{
+
+.gameContainer {
   display: flex;
   gap: 10px;
 }
-.gameDiv{
+
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 500px;
+}
+
+@media screen and (max-width: 500px) {
+  .gameContainer {
+    flex-direction: column-reverse;
+    align-items: center;
+  }
+  .side {
+    flex-direction: column-reverse;
+    align-items: center;
+  }
+
+  .container {
+    align-items: center;
+  }
+}
+
+.gameDiv {
   display: flex;
   flex-direction: column;
   gap: 10px;
 }
-.nextPuyoDiv{
+
+.nextPuyoDiv {
   display: flex;
   flex-direction: column;
   justify-content: left;
   gap: 10px;
   align-items: start;
+}
+
+.side {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 200px;
+}
+
+.instructions {
+  text-align: left;
+}
+
+.instructions ul {
+  padding-left: 20px;
+}
+
+.instructions li {
+  margin-bottom: 5px;
+}
+
+.mobileControls {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+}
+
+.mobileControls button {
+  background-color: #4caf50;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  padding: 10px;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.mobileControls button:hover {
+  background-color: #45a049;
 }

@@ -2,21 +2,54 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/puyo.png" />
+    <link rel="icon" type="image/png" href="/puyo.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Puyo puyo</title>
+    <title>Puyo Puyo</title>
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet" />
   </head>
   <body>
     <div class="container">
-      <h1>Puyo Puyo</h1>
+      <h1>Puyo Puyo 🎮</h1>
       <div class="gameContainer">
         <div class="gameDiv">
-          <p>Puntuation: <span id="puntuation">0</span></p>
+          <h3>
+            <i class="fa fa-star"></i> Score: <span id="puntuation">0</span>
+          </h3>
           <canvas id="gameCanvas" width="300" height="600"></canvas>
+          <div class="mobileControls">
+            <button id="rotate">
+              Rotate
+            </button>
+            <button id="left">
+              Left
+            </button>
+            <button id="right">
+              Right
+            </button>
+            <button id="drop">
+               Drop
+            </button>
+          </div>
         </div>
-        <div class="nextPuyoDiv">
-          <p>Next Puyo</p>
-          <canvas id="nextPuyoCanvas" width="150" height="150"> </canvas>
+        <div class="side">
+          <div class="instructions">
+            <h3>📋 Instructions</h3>
+            <ul>
+              <li>Move: Arrow keys</li>
+              <li>Rotate: Space</li>
+              <li>Drop: Down arrow</li>
+              <li>Restart: R</li>
+            </ul>
+            <p>
+              Position the Puyos to create groups of four or more same-colored
+              Puyos. The goal is to connect four or more Puyos in any direction
+              (horizontal, vertical) to make them disappear and score points.
+            </p>
+          </div>
+          <div class="nextPuyoDiv">
+            <h3>Next Puyo:</h3>
+            <canvas id="nextPuyoCanvas" width="150" height="150"> </canvas>
+          </div>
         </div>
       </div>
       <script type="module" src="/main.js"></script>
