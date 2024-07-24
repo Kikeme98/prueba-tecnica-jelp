@@ -12,7 +12,7 @@ this is a test for a position on Jelp.
 - **Move Left**: `←` Arrow Left
 - **Move Right**: `→` Arrow Right
 - **Move Down**: `↓` Arrow Down
-- **Rotate**: `↑` Arrow Up
+- **Rotate**: `Space bar` Arrow Up
 
 ## How to Play 📜
 
