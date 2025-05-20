@@ -4,12 +4,8 @@ import puyo_blue from "./img/puyo_blue.png";
 import puyo_red from "./img/puyo_red.png";
 import puyo_green from "./img/puyo_green.png";
 
-const canvas = document.getElementById("gameCanvas");
-const nextPuyoCanvas = document.getElementById("nextPuyoCanvas");
-const ctx = canvas.getContext("2d");
-const nextPuyoCtx = nextPuyoCanvas.getContext("2d");
-const puntuationElement = document.getElementById("puntuation");
-const buttonRestart = document.getElementById("restart");
+// Removed original global canvas/ctx/puntuationElement, will be player-specific
+const buttonRestart = document.getElementById("restart"); // Keep global for now
 const buttonLeft = document.getElementById("left");
 const buttonRight = document.getElementById("right");
 const buttonRotate = document.getElementById("rotate");
@@ -19,26 +15,7 @@ const COLS = 6;
 const ROWS = 12;
 const PUYO_SIZE = 50;
 
-let puntuation = 0;
-let currentPuyo = null;
-let nextPuyo = null;
-let lastTimestamp = 0;
-let gameOver = false;
-
-const board = [
-  [0, 0, 0, 0, 0, 0],
-  [0, 0, 0, 0, 0, 0],
-  [0, 0, 0, 0, 0, 0],
-  [0, 0, 0, 0, 0, 0],
-  [0, 0, 0, 0, 0, 0],
-  [0, 0, 0, 0, 0, 0],
-  [0, 0, 0, 0, 0, 0],
-  [0, 0, 0, 0, 0, 0],
-  [0, 0, 0, 0, 0, 0],
-  [0, 0, 0, 0, 0, 0],
-  [0, 0, 0, 0, 0, 0],
-  [0, 0, 0, 0, 0, 0],
-];
+let lastTimestamp = 0; // Global for game loop timing
 
 const puyoImages = {
   yellow: new Image(),
@@ -63,16 +40,44 @@ const loadImages = () => {
   );
 };
 
+class Player {
+  constructor(id, canvasId, nextPuyoCanvasId, puntuationId) {
+    this.id = id;
+    const canvasEl = document.getElementById(canvasId);
+    const nextPuyoCanvasEl = document.getElementById(nextPuyoCanvasId);
+    this.puntuationElement = document.getElementById(puntuationId);
+
+    if (!canvasEl || !nextPuyoCanvasEl || !this.puntuationElement) {
+      console.error(`Failed to get elements for Player ${id}. Check HTML IDs: ${canvasId}, ${nextPuyoCanvasId}, ${puntuationId}`);
+      // Provide non-null defaults or throw error to prevent further issues
+      this.ctx = new Proxy({}, { get() { throw new Error(`Canvas context for Player ${id} not initialized.`); } });
+      this.nextPuyoCtx = new Proxy({}, { get() { throw new Error(`Next Puyo context for Player ${id} not initialized.`); } });
+    } else {
+      this.ctx = canvasEl.getContext("2d");
+      this.nextPuyoCtx = nextPuyoCanvasEl.getContext("2d");
+    }
+    
+    this.board = Array(ROWS)
+      .fill(null)
+      .map(() => Array(COLS).fill(0));
+    this.score = 0;
+    this.currentPuyo = null;
+    this.nextPuyo = null;
+    this.gameOver = false;
+  }
+}
+
 class Puyo {
-  constructor(x, y, color) {
+  constructor(x, y, color, playerCtx) {
     this.x = x;
     this.y = y;
     this.color = color;
     this.img = puyoImages[color];
+    this.playerCtx = playerCtx; // Store the player-specific context
   }
 
   draw() {
-    ctx.drawImage(
+    this.playerCtx.drawImage( // Use player-specific context
       this.img,
       this.x * PUYO_SIZE,
       this.y * PUYO_SIZE,
@@ -96,8 +101,13 @@ class Puyo {
 }
 
 class PuyoPair {
-  constructor(x, y, color1, color2) {
-    this.puyos = [new Puyo(x, y, color1), new Puyo(x, y + 1, color2)];
+  constructor(x, y, color1, color2, playerCtx, playerBoard) {
+    this.puyos = [
+      new Puyo(x, y, color1, playerCtx),
+      new Puyo(x, y + 1, color2, playerCtx),
+    ];
+    this.playerCtx = playerCtx;
+    this.playerBoard = playerBoard; // Store player's board
   }
 
   draw() {
@@ -123,307 +133,410 @@ class PuyoPair {
     const centerX = puyo1.x;
     const centerY = puyo1.y;
 
-    // Realiza la rotación
     const relativeX = puyo2.x - centerX;
     const relativeY = puyo2.y - centerY;
-    puyo2.x = centerX + relativeY;
-    puyo2.y = centerY - relativeX;
+    const newPuyo2X = centerX + relativeY;
+    const newPuyo2Y = centerY - relativeX;
 
-    // Verifica los límites después de la rotación
-    if (
-      this.puyos.some(
-        (puyo) =>
-          puyo.x < 0 ||
-          puyo.x >= COLS ||
-          puyo.y >= ROWS ||
-          board[puyo.y][puyo.x] !== 0
-      )
-    ) {
-      // Si alguno de los puyos se sale de los límites o colisiona con otra pieza, deshace la rotación
-      puyo2.x = centerX - relativeY;
-      puyo2.y = centerY + relativeX;
+    // Check bounds and collision on the player's board
+    let canRotate = true;
+    const tempPuyo2 = { x: newPuyo2X, y: newPuyo2Y }; // Temporary object for checking
+    const puyosToCheck = [puyo1, tempPuyo2];
+
+    for (const p of puyosToCheck) {
+        if (p.x < 0 || p.x >= COLS || p.y < 0 || p.y >= ROWS || (this.playerBoard[p.y] && this.playerBoard[p.y][p.x] !== 0)) {
+            canRotate = false;
+            break;
+        }
+    }
+
+    if (canRotate) {
+        puyo2.x = newPuyo2X;
+        puyo2.y = newPuyo2Y;
     }
   }
 }
 
-const drawNextPuyo = () => {
-  nextPuyoCtx.fillStyle = "gray";
-  nextPuyoCtx.fillRect(0, 0, nextPuyoCanvas.width, nextPuyoCanvas.height);
-  nextPuyoCtx.drawImage(nextPuyo.puyos[0].img, 50, 25, PUYO_SIZE, PUYO_SIZE);
-  nextPuyoCtx.drawImage(nextPuyo.puyos[1].img, 50, 75, PUYO_SIZE, PUYO_SIZE);
+const drawNextPuyo = (player) => {
+  if (!player.nextPuyo) return;
+  player.nextPuyoCtx.fillStyle = "gray";
+  player.nextPuyoCtx.fillRect(
+    0,
+    0,
+    player.nextPuyoCtx.canvas.width,
+    player.nextPuyoCtx.canvas.height
+  );
+  player.nextPuyoCtx.drawImage(
+    player.nextPuyo.puyos[0].img,
+    50,
+    25,
+    PUYO_SIZE,
+    PUYO_SIZE
+  );
+  player.nextPuyoCtx.drawImage(
+    player.nextPuyo.puyos[1].img,
+    50,
+    75,
+    PUYO_SIZE,
+    PUYO_SIZE
+  );
 };
 
-const drawBoard = () => {
-  ctx.fillStyle = "gray";
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
+const drawBoard = (player) => {
+  player.ctx.fillStyle = "gray";
+  player.ctx.fillRect(0, 0, player.ctx.canvas.width, player.ctx.canvas.height);
 
   for (let row = 0; row < ROWS; row++) {
     for (let col = 0; col < COLS; col++) {
-      if (board[row][col] !== 0) {
-        const puyo = new Puyo(col, row, board[row][col]);
+      if (player.board[row][col] !== 0) {
+        const puyo = new Puyo(col, row, player.board[row][col], player.ctx);
         puyo.draw();
       } else {
-        ctx.fillStyle = "gray";
-        ctx.fillRect(col * PUYO_SIZE, row * PUYO_SIZE, PUYO_SIZE, PUYO_SIZE);
+        // Optional: draw empty cells explicitly if needed for debugging
+        // player.ctx.fillStyle = "lightgray";
+        // player.ctx.fillRect(col * PUYO_SIZE, row * PUYO_SIZE, PUYO_SIZE, PUYO_SIZE);
       }
     }
   }
 };
 
-const spawnPuyo = () => {
+const spawnPuyo = (player) => {
   const colors = ["yellow", "blue", "red", "green"];
   const color1 = colors[Math.floor(Math.random() * colors.length)];
   const color2 = colors[Math.floor(Math.random() * colors.length)];
-  const puyoPair = new PuyoPair(2, 0, color1, color2);
-  return puyoPair;
+  // Spawn at top-middle. Ensure PuyoPair gets player.board
+  return new PuyoPair(Math.floor(COLS / 2) -1 , 0, color1, color2, player.ctx, player.board);
 };
 
-const checkCollision = () => {
-  let hasCollision = false;
-  currentPuyo.puyos.forEach(({ x, y }) => {
-    if (y + 1 >= ROWS || board[y + 1][x] !== 0) {
-      hasCollision = true;
+const checkCollision = (player) => {
+  if (!player.currentPuyo) return false;
+  for (const puyo of player.currentPuyo.puyos) {
+    if (puyo.y + 1 >= ROWS || (player.board[puyo.y + 1] && player.board[puyo.y + 1][puyo.x] !== 0)) {
+      return true;
+    }
+  }
+  return false;
+};
+
+const solidifyPuyo = (player) => {
+  if (!player.currentPuyo) return;
+  player.currentPuyo.puyos.forEach(({ x, y, color }) => {
+    if (y >= 0 && y < ROWS && x >=0 && x < COLS) { // Ensure puyo is within board bounds
+        player.board[y][x] = color;
     }
   });
-  return hasCollision;
 };
 
-const solidifyPuyo = () => {
-  currentPuyo.puyos.forEach(({ x, y, color }) => {
-    board[y][x] = color;
-  });
+const isGameOver = (player) => {
+  const spawnCol = Math.floor(COLS / 2) -1;
+  if (player.board[0][spawnCol] !== 0 || player.board[1][spawnCol] !== 0) {
+      return true;
+  }
+  return false;
 };
 
-const isGameOver = () => {
-  return currentPuyo.puyos.some(({ y }) => y === 0);
-};
-
-const handleGameOver = () => {
-  ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  ctx.fillStyle = "white";
-  ctx.font = "28px system-ui";
-  ctx.textAlign = "center";
-  ctx.fillText("Game Over", canvas.width / 2, canvas.height / 2 - 50);
-  ctx.fillText("Score: " + puntuation, canvas.width / 2, canvas.height / 2);
-  ctx.fillText(
-    "Press 'R' to restart",
-    canvas.width / 2,
-    canvas.height / 2 + 50
+const handleGameOver = (player) => {
+  player.gameOver = true; // Set player-specific game over
+  player.ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
+  player.ctx.fillRect(0, 0, player.ctx.canvas.width, player.ctx.canvas.height);
+  player.ctx.fillStyle = "white";
+  player.ctx.font = "28px system-ui";
+  player.ctx.textAlign = "center";
+  player.ctx.fillText(
+    `Player ${player.id} Game Over`,
+    player.ctx.canvas.width / 2,
+    player.ctx.canvas.height / 2 - 50
+  );
+  player.ctx.fillText(
+    "Score: " + player.score,
+    player.ctx.canvas.width / 2,
+    player.ctx.canvas.height / 2
   );
 };
 
-const handleRestart = () => {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  puntuation = 0;
-  board.forEach((row) => row.fill(0));
-  puntuationElement.innerHTML = puntuation;
-  gameOver = false;
-  currentPuyo = spawnPuyo();
-  drawNextPuyo();
-  drawBoard();
-  startGame();
-};
 
-// Controls section
+const Break4PuyosConnected = (player) => {
+  const visited = Array(ROWS).fill(null).map(() => Array(COLS).fill(false));
+  const puyosToRemove = [];
 
-buttonDrop.addEventListener("click", () => {
-  if (!gameOver) {
-    if (
-      currentPuyo.puyos.every(
-        (puyo) => puyo.y < ROWS - 1 && board[puyo.y + 1][puyo.x] === 0
-      )
-    ) {
-      currentPuyo.move(0, 1);
+  const findConnected = (r, c, color, currentGroup) => {
+    if (r < 0 || r >= ROWS || c < 0 || c >= COLS || visited[r][c] || player.board[r][c] !== color) {
+      return;
+    }
+    visited[r][c] = true;
+    currentGroup.push({ row: r, col: c });
+    findConnected(r + 1, c, color, currentGroup);
+    findConnected(r - 1, c, color, currentGroup);
+    findConnected(r, c + 1, color, currentGroup);
+    findConnected(r, c - 1, color, currentGroup);
+  };
+
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      if (player.board[r][c] !== 0 && !visited[r][c]) {
+        const currentGroup = [];
+        findConnected(r, c, player.board[r][c], currentGroup);
+        if (currentGroup.length >= 4) {
+          puyosToRemove.push(...currentGroup);
+        }
+      }
     }
   }
+  const uniquePuyosToRemove = [];
+  const seen = new Set();
+  for (const puyo of puyosToRemove) {
+      const key = `${puyo.row}-${puyo.col}`;
+      if (!seen.has(key)) {
+          uniquePuyosToRemove.push(puyo);
+          seen.add(key);
+      }
+  }
+  return uniquePuyosToRemove;
+};
+
+const applyGravityAndClearPuyos = (player) => {
+    let puyosClearedThisCycle = false;
+    let anythingChanged;
+
+    do {
+        anythingChanged = false;
+        // Apply gravity
+        for (let c = 0; c < COLS; c++) {
+            for (let r = ROWS - 2; r >= 0; r--) {
+                if (player.board[r][c] !== 0 && player.board[r + 1][c] === 0) {
+                    let currentR = r;
+                    while (currentR + 1 < ROWS && player.board[currentR + 1][c] === 0) {
+                        player.board[currentR + 1][c] = player.board[currentR][c];
+                        player.board[currentR][c] = 0;
+                        currentR++;
+                        anythingChanged = true;
+                    }
+                }
+            }
+        }
+
+        // Check for and clear connected puyos
+        const puyosToClear = Break4PuyosConnected(player);
+        if (puyosToClear.length > 0) {
+            puyosToClear.forEach(puyo => {
+                player.board[puyo.row][puyo.col] = 0;
+            });
+            player.score += puyosToClear.length * 10; // Simple scoring
+            player.puntuationElement.textContent = player.score;
+            anythingChanged = true;
+            puyosClearedThisCycle = true;
+        }
+    } while (anythingChanged); // Repeat if gravity or clearing caused changes
+
+    return puyosClearedThisCycle;
+};
+
+// Global player instances
+let player1 = null;
+let player2 = null;
+let players = []; // Array to hold player instances
+
+const initializePlayers = () => {
+    player1 = new Player(1, "gameCanvas1", "nextPuyoCanvas1", "puntuation1");
+    player2 = new Player(2, "gameCanvas2", "nextPuyoCanvas2", "puntuation2");
+    players = [player1, player2].filter(p => p.ctx && p.nextPuyoCtx && p.puntuationElement); // Filter out players that failed to initialize
+};
+
+const handleRestart = () => {
+    if (players.length === 0) initializePlayers(); // Ensure players are initialized
+
+    players.forEach(p => {
+        p.score = 0;
+        p.board.forEach(row => row.fill(0));
+        p.gameOver = false;
+        p.currentPuyo = spawnPuyo(p);
+        p.nextPuyo = spawnPuyo(p);
+        if (p.puntuationElement) p.puntuationElement.textContent = p.score;
+        drawBoard(p);
+        drawNextPuyo(p);
+    });
+    lastTimestamp = 0; 
+    
+    if (!gameLoopRunning && players.some(p => !p.gameOver)) {
+        gameLoopRunning = true;
+        requestAnimationFrame(gameLoop); 
+    } else if (players.every(p => p.gameOver)) {
+        // If all players were game over, and we are restarting, we need to ensure the loop starts
+        gameLoopRunning = true;
+        requestAnimationFrame(gameLoop);
+    }
+    console.log("Game restarted for all players.");
+};
+
+
+let gameLoopRunning = false;
+const gameSpeed = 1000; // Milliseconds for puyo fall
+
+const gameLoop = (timestamp) => {
+    if (!gameLoopRunning) return;
+
+    let anyPlayerActive = false;
+    players.forEach(player => {
+        if (player && !player.gameOver) { 
+            anyPlayerActive = true;
+            const deltaTime = timestamp - lastTimestamp; 
+
+            drawBoard(player);
+            drawNextPuyo(player);
+            if (player.currentPuyo) player.currentPuyo.update();
+            
+            let changedInCycle;
+            do {
+                changedInCycle = applyGravityAndClearPuyos(player);
+                if (changedInCycle) {
+                    drawBoard(player); 
+                }
+            } while (changedInCycle);
+
+            if (deltaTime >= gameSpeed) {
+                if (player.currentPuyo) {
+                    if (checkCollision(player)) {
+                        solidifyPuyo(player);
+                        do {
+                           changedInCycle = applyGravityAndClearPuyos(player);
+                           if (changedInCycle) drawBoard(player);
+                        } while (changedInCycle);
+
+                        if (isGameOver(player)) {
+                            handleGameOver(player);
+                        } else {
+                            player.currentPuyo = player.nextPuyo;
+                            player.nextPuyo = spawnPuyo(player);
+                        }
+                    } else {
+                        player.currentPuyo.fall();
+                    }
+                } else if (!player.gameOver) { 
+                    player.currentPuyo = spawnPuyo(player);
+                }
+            }
+        }
+    });
+
+    if (anyPlayerActive) {
+        if (timestamp - lastTimestamp >= gameSpeed) { 
+            lastTimestamp = timestamp;
+        }
+        requestAnimationFrame(gameLoop);
+    } else {
+        console.log("All players game over or game stopped.");
+        gameLoopRunning = false; 
+        // Display a global message or enable restart button more prominently
+        const firstPlayerCtx = players.length > 0 ? players[0].ctx : null; 
+        if (firstPlayerCtx) {
+            firstPlayerCtx.fillStyle = "rgba(0, 0, 0, 0.8)";
+            firstPlayerCtx.fillRect(0, 0, firstPlayerCtx.canvas.width, firstPlayerCtx.canvas.height);
+            firstPlayerCtx.fillStyle = "white";
+            firstPlayerCtx.font = "24px system-ui";
+            firstPlayerCtx.textAlign = "center";
+            firstPlayerCtx.fillText("All players Game Over!", firstPlayerCtx.canvas.width / 2, firstPlayerCtx.canvas.height / 2 - 30);
+            firstPlayerCtx.fillText("Press 'R' to Restart", firstPlayerCtx.canvas.width / 2, firstPlayerCtx.canvas.height / 2 + 10);
+        }
+    }
+};
+
+const startGame = () => {
+  initializePlayers();
+  handleRestart(); 
+
+  if (!gameLoopRunning && players.some(p => !p.gameOver)) { 
+    gameLoopRunning = true;
+    requestAnimationFrame(gameLoop);
+  }
+};
+
+
+document.addEventListener("keydown", (event) => {
+    if (event.key.toLowerCase() === "r") {
+        console.log("R key pressed, restarting game.");
+        handleRestart(); 
+        return; 
+    }
+
+    // Player 1 controls
+    if (player1 && !player1.gameOver && player1.currentPuyo) {
+        switch (event.key) {
+            case "ArrowLeft":
+                if (player1.currentPuyo.puyos.every(p => p.x > 0 && player1.board[p.y][p.x - 1] === 0)) {
+                    player1.currentPuyo.move(-1, 0);
+                }
+                break;
+            case "ArrowRight":
+                if (player1.currentPuyo.puyos.every(p => p.x < COLS - 1 && player1.board[p.y][p.x + 1] === 0)) {
+                    player1.currentPuyo.move(1, 0);
+                }
+                break;
+            case "ArrowDown": 
+                if (!checkCollision(player1)) {
+                    player1.currentPuyo.fall();
+                }
+                break;
+            case " ": 
+            case "Enter":
+                player1.currentPuyo.rotate();
+                break;
+        }
+    }
+
+    // Player 2 controls
+    if (player2 && !player2.gameOver && player2.currentPuyo) {
+        switch (event.key.toLowerCase()) { 
+            case "a": 
+                if (player2.currentPuyo.puyos.every(p => p.x > 0 && player2.board[p.y][p.x - 1] === 0)) {
+                    player2.currentPuyo.move(-1, 0);
+                }
+                break;
+            case "d": 
+                if (player2.currentPuyo.puyos.every(p => p.x < COLS - 1 && player2.board[p.y][p.x + 1] === 0)) {
+                    player2.currentPuyo.move(1, 0);
+                }
+                break;
+            case "s": 
+                if (!checkCollision(player2)) {
+                    player2.currentPuyo.fall();
+                }
+                break;
+            case "w": 
+            case "shift": 
+                player2.currentPuyo.rotate();
+                break;
+        }
+    }
 });
 
+
+// Button controls (map to Player 1)
 buttonLeft.addEventListener("click", () => {
-  if (!gameOver) {
-    if (
-      currentPuyo.puyos.every(
-        (puyo) => puyo.x > 0 && board[puyo.y][puyo.x - 1] === 0
-      )
-    ) {
-      currentPuyo.move(-1, 0);
-    }
+  if (player1 && !player1.gameOver && player1.currentPuyo && player1.currentPuyo.puyos.every(p => p.x > 0 && player1.board[p.y][p.x - 1] === 0)) {
+    player1.currentPuyo.move(-1, 0);
   }
 });
 
 buttonRight.addEventListener("click", () => {
-  if (!gameOver) {
-    if (
-      currentPuyo.puyos.every(
-        (puyo) => puyo.x < COLS - 1 && board[puyo.y][puyo.x + 1] === 0
-      )
-    ) {
-      currentPuyo.move(1, 0);
-    }
+  if (player1 && !player1.gameOver && player1.currentPuyo && player1.currentPuyo.puyos.every(p => p.x < COLS - 1 && player1.board[p.y][p.x + 1] === 0)) {
+    player1.currentPuyo.move(1, 0);
   }
 });
 
 buttonRotate.addEventListener("click", () => {
-  if (!gameOver) {
-    currentPuyo.rotate();
+  if (player1 && !player1.gameOver && player1.currentPuyo) {
+    player1.currentPuyo.rotate();
   }
 });
 
-document.addEventListener("keydown", (event) => {
-  if (!gameOver) {
-    switch (event.key) {
-      case "ArrowLeft":
-        if (
-          currentPuyo.puyos.every(({ x, y }) => x > 0 && board[y][x - 1] === 0)
-        ) {
-          currentPuyo.move(-1, 0);
-        }
-        break;
-      case "ArrowRight":
-        if (
-          currentPuyo.puyos.every(
-            ({ x, y }) => x < COLS - 1 && board[y][x + 1] === 0
-          )
-        ) {
-          currentPuyo.move(1, 0);
-        }
-        break;
-      case "ArrowDown":
-        if (
-          currentPuyo.puyos.every(
-            ({ x, y }) => y < ROWS - 1 && board[y + 1][x] === 0
-          )
-        ) {
-          currentPuyo.move(0, 1);
-        }
-        break;
-      case " ":
-        currentPuyo.rotate();
-        break;
-    }
-  }
-
-  if (event.key === "r" && gameOver) {
-    console.log("restarting");
-    handleRestart();
+buttonDrop.addEventListener("click", () => { 
+  if (player1 && !player1.gameOver && player1.currentPuyo && !checkCollision(player1)) {
+    player1.currentPuyo.fall();
   }
 });
 
-const Break4PuyosConnected = () => {
-  const visited = new Array(ROWS).fill().map(() => new Array(COLS).fill(false));
-  let puyosToRemove = [];
 
-  const dfs = (row, col, color, direction) => {
-    if (
-      row < 0 ||
-      row >= ROWS ||
-      col < 0 ||
-      col >= COLS ||
-      visited[row][col] ||
-      board[row][col] !== color
-    ) {
-      return 0;
-    }
-
-    visited[row][col] = true;
-    let count = 1;
-
-    if (direction !== "up") count += dfs(row + 1, col, color, "down");
-    if (direction !== "down") count += dfs(row - 1, col, color, "up");
-    if (direction !== "left") count += dfs(row, col + 1, color, "right");
-    if (direction !== "right") count += dfs(row, col - 1, color, "left");
-
-    return count;
-  };
-
-  for (let row = 0; row < ROWS; row++) {
-    for (let col = 0; col < COLS; col++) {
-      if (typeof board[row][col] === "string" && !visited[row][col]) {
-        const color = board[row][col];
-        const count = dfs(row, col, color);
-
-        if (count >= 4) {
-          // Marcar los puyos para eliminar
-          for (let r = 0; r < ROWS; r++) {
-            for (let c = 0; c < COLS; c++) {
-              if (visited[r][c]) {
-                puyosToRemove.push({ row: r, col: c });
-                board[r][c] = 0; // Limpiar el puyo del tablero
-              }
-            }
-          }
-        }
-
-        // Reiniciar el seteo de visitados
-        visited.forEach((row) => row.fill(false));
-      }
-    }
-  }
-  // Devolver la lista de puyos que se eliminarán
-  return puyosToRemove;
-};
-
-const startGame = () => {
-  puntuation = 0;
-  currentPuyo = spawnPuyo();
-  nextPuyo = spawnPuyo();
-  let speed = 1000;
-  const gameLoop = (timestamp) => {
-    if (!gameOver) {
-      const deltaTime = timestamp - lastTimestamp;
-
-      drawBoard();
-      drawNextPuyo();
-      currentPuyo.update();
-      const puyosToRemove = Break4PuyosConnected();
-      if (puyosToRemove.length > 0) {
-        puyosToRemove.forEach((puyo) => {
-          board[puyo.row][puyo.col] = 0;
-        });
-
-        puntuation += puyosToRemove.length * 10;
-        puntuationElement.textContent = puntuation;
-        speed -= 10;
-      }
-
-      if (deltaTime > speed) {
-        // Verificar y hacer caer los puyos individuales
-        for (let row = ROWS - 1; row >= 0; row--) {
-          for (let col = 0; col < COLS; col++) {
-            if (typeof board[row][col] === "string") {
-              const puyo = new Puyo(col, row, board[row][col]);
-              if (row + 1 >= ROWS || board[row + 1][col] !== 0) {
-                // Si hay colisión o llega al fondo, solidificar el puyo
-                board[row][col] = puyo.color;
-              } else {
-                // Si puede caer, actualizar su posición
-                board[row][col] = 0;
-                puyo.fall();
-                board[row + 1][col] = puyo.color;
-              }
-            }
-          }
-        }
-
-        if (checkCollision()) {
-          solidifyPuyo();
-          if (isGameOver()) {
-            gameOver = true;
-            handleGameOver();
-          } else {
-            currentPuyo = nextPuyo;
-            nextPuyo = spawnPuyo();
-          }
-        } else {
-          currentPuyo.fall();
-        }
-        lastTimestamp = timestamp;
-      }
-      requestAnimationFrame(gameLoop);
-    }
-  };
-
-  gameLoop(0);
-};
-
+// Initial call to start the game
 loadImages().then(startGame);
+
+```

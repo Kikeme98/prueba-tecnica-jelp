@@ -11,45 +11,43 @@
     <div class="container">
       <h1>Puyo Puyo 🎮</h1>
       <div class="gameContainer">
-        <div class="gameDiv">
-          <h3>
-            <i class="fa fa-star"></i> Score: <span id="puntuation">0</span>
-          </h3>
-          <canvas id="gameCanvas" width="300" height="600"></canvas>
-          <div class="mobileControls">
-            <button id="rotate">
-              Rotate
-            </button>
-            <button id="left">
-              Left
-            </button>
-            <button id="right">
-              Right
-            </button>
-            <button id="drop">
-               Drop
-            </button>
-          </div>
-        </div>
-        <div class="side">
-          <div class="instructions">
-            <h3>📋 Instructions</h3>
-            <ul>
-              <li>Move: Arrow keys</li>
-              <li>Rotate: Space</li>
-              <li>Drop: Down arrow</li>
-              <li>Restart: R</li>
-            </ul>
-            <p>
-              Position the Puyos to create groups of four or more same-colored
-              Puyos. The goal is to connect four or more Puyos in any direction
-              (horizontal, vertical) to make them disappear and score points.
-            </p>
-          </div>
+        <div class="player-container" id="player1Container">
+          <h3>Player 1 Score: <span id="puntuation1">0</span></h3>
+          <canvas id="gameCanvas1" width="300" height="600"></canvas>
           <div class="nextPuyoDiv">
             <h3>Next Puyo:</h3>
-            <canvas id="nextPuyoCanvas" width="150" height="150"> </canvas>
+            <canvas id="nextPuyoCanvas1" width="150" height="150"></canvas>
           </div>
+        </div>
+        <div class="player-container" id="player2Container">
+          <h3>Player 2 Score: <span id="puntuation2">0</span></h3>
+          <canvas id="gameCanvas2" width="300" height="600"></canvas>
+          <div class="nextPuyoDiv">
+            <h3>Next Puyo:</h3>
+            <canvas id="nextPuyoCanvas2" width="150" height="150"></canvas>
+          </div>
+        </div>
+      </div>
+      <div class="mobileControls">
+        <button id="rotate">Rotate</button>
+        <button id="left">Left</button>
+        <button id="right">Right</button>
+        <button id="drop">Drop</button>
+      </div>
+      <div class="side">
+        <div class="instructions">
+          <h3>📋 Instructions</h3>
+          <ul>
+            <li>Move: Arrow keys</li>
+            <li>Rotate: Space</li>
+            <li>Drop: Down arrow</li>
+            <li>Restart: R</li>
+          </ul>
+          <p>
+            Position the Puyos to create groups of four or more same-colored
+            Puyos. The goal is to connect four or more Puyos in any direction
+            (horizontal, vertical) to make them disappear and score points.
+          </p>
         </div>
       </div>
       <script type="module" src="/main.js"></script>

@@ -32,47 +32,55 @@ canvas {
   gap: 10px;
 }
 
+.player-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px; /* Added gap for elements within player container */
+  border: 1px solid #555; /* Added border for visual distinction */
+  padding: 10px; /* Added padding */
+  border-radius: 8px; /* Added border-radius */
+  flex: 1; /* Allow player containers to grow equally */
+}
+
 .container {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  max-width: 500px;
+  max-width: 900px; /* Increased max-width for two players */
 }
 
-@media screen and (max-width: 500px) {
+@media screen and (max-width: 768px) { /* Adjusted breakpoint for better responsiveness */
   .gameContainer {
-    flex-direction: column-reverse;
+    flex-direction: column; /* Changed to column for P1 on top of P2 */
     align-items: center;
   }
   .side {
-    flex-direction: column-reverse;
+    /* flex-direction: column-reverse; // Keep as is or change to column if preferred */
     align-items: center;
   }
 
   .container {
     align-items: center;
+    max-width: 500px; /* Adjust container width for stacked view */
   }
 }
 
-.gameDiv {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
+/* Removed .gameDiv as it's replaced by .player-container */
 
 .nextPuyoDiv {
   display: flex;
   flex-direction: column;
-  justify-content: left;
-  gap: 10px;
-  align-items: start;
+  /* justify-content: left; // Removed for centering */
+  gap: 5px; /* Adjusted gap */
+  align-items: center; /* Changed to center */
 }
 
 .side {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  max-width: 200px;
+  max-width: 100%; /* Allow side to take full width if needed on small screens */
 }
 
 .instructions {
@@ -91,6 +99,7 @@ canvas {
   display: flex;
   justify-content: center;
   gap: 10px;
+  width: 100%; /* Ensure controls take full width if centered in container */
 }
 
 .mobileControls button {
