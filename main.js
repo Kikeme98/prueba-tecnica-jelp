@@ -50,8 +50,8 @@ class Player {
     if (!canvasEl || !nextPuyoCanvasEl || !this.puntuationElement) {
       console.error(`Failed to get elements for Player ${id}. Check HTML IDs: ${canvasId}, ${nextPuyoCanvasId}, ${puntuationId}`);
       // Provide non-null defaults or throw error to prevent further issues
-      this.ctx = new Proxy({}, { get() { throw new Error(`Canvas context for Player ${id} not initialized.`); } });
-      this.nextPuyoCtx = new Proxy({}, { get() { throw new Error(`Next Puyo context for Player ${id} not initialized.`); } });
+      this.ctx = null; // Changed from Proxy to null
+      this.nextPuyoCtx = null; // Changed from Proxy to null
     } else {
       this.ctx = canvasEl.getContext("2d");
       this.nextPuyoCtx = nextPuyoCanvasEl.getContext("2d");
